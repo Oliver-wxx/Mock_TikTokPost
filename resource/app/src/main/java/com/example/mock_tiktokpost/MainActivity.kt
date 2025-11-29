@@ -85,8 +85,12 @@ class PostViewModel : ViewModel() {
     var locationName by mutableStateOf("点击添加位置")
     var isLocationLoading by mutableStateOf(false)
     // Mock Data
-    val trendingTopics = listOf("#男大学生","#抽象","#日常分享","#生活碎片","#王者荣耀","#西安","#内容太过真实","#上热门🔥上热门")
-    val mockFriends = listOf(MockUser("1", "张三"), MockUser("2", "李四"), MockUser("3", "王五"),)
+    val trendingTopics = listOf("#男大学生","#抽象","#日常分享","#生活碎片","#王者荣耀","#西安","#内容太过真实","#上热门🔥上热门","#热门挑战", "#今日穿搭", "#美食分享", "#旅行Vlog",
+        "#搞笑日常", "#音乐推荐", "#学习打卡", "#生活记录")
+    val mockFriends = listOf(
+        MockUser("1", "张三"), MockUser("2", "李四"), MockUser("3", "王五"),
+        MockUser("4", "赵六"), MockUser("5", "孙七")
+    )
     // PhotoManage
     fun removeImage(uri: Uri) {
     selectedImages.remove(uri)
@@ -190,8 +194,8 @@ class MainActivity : ComponentActivity() {
         val isShowPermissionSheet = remember { mutableStateOf(false) } // 控制权限弹窗显示
         val currentPermission = remember { mutableStateOf("公开 · 所有人可见") } // 当前选中的权限
         val isShowFriendSelectSheet = remember { mutableStateOf(false) } // 控制好友选择弹窗显示
-        var selectType by remember { mutableStateOf("") } // 标记是“部分可见”还是“不给谁看”
-        val selectedFriends = remember { mutableStateListOf<MockUser>() } // 选中的好友列表
+        var selectType by remember { mutableStateOf("") }
+        val selectedFriends = remember { mutableStateListOf<MockUser>() }
 
         // Camera Logic
         var tempPhotoUri by remember { mutableStateOf<Uri?>(null) }
@@ -207,7 +211,7 @@ class MainActivity : ComponentActivity() {
                 val fileName = "temp_${System.currentTimeMillis()}.jpg"
                 val file = File(cacheDir, fileName)
 
-                val authority = "com.example.mock_tiktokpost.provider" // 你的实际 authority
+                val authority = "com.example.mock_tiktokpost.provider"
                 val uri = FileProvider.getUriForFile(context, authority, file)
                 tempPhotoUri = uri
                 cameraLauncher.launch(uri)
@@ -220,7 +224,7 @@ class MainActivity : ComponentActivity() {
             ActivityResultContracts.RequestPermission()
         ) { isGranted ->
             if (isGranted) {
-                // 权限通过，启动相机（调用相机逻辑）
+                // 权限通过，启动相机（
                 launchCamera(context)
             } else {
                 Toast.makeText(context, "需要相机权限才能拍照", Toast.LENGTH_SHORT).show()
@@ -269,7 +273,7 @@ class MainActivity : ComponentActivity() {
                         galleryLauncher.launch("image/*")
                     }) { Text("相册") }
                 },
-                // take a photo by camera（修改后）
+                // take a photo by camera
                 dismissButton = {
                     TextButton(onClick = {
                         setShowAddOptions(false)
@@ -385,7 +389,6 @@ class MainActivity : ComponentActivity() {
                             uri = uri,
                             index = index,
                             totalCount = viewModel.selectedImages.size,
-                            // 👇 关键：在这里判断是否是第一张图（index == 0），传入组件
                             isFirstImage = index == 0,
                             onRemove = { viewModel.removeImage(uri) },
                             onMove = { from, to -> viewModel.moveImage(from, to) },
@@ -393,7 +396,7 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
-                    // 添加图片按钮（不变）
+                    // 添加图片按钮
                     item {
                         Box(
                             modifier = Modifier
@@ -446,7 +449,6 @@ class MainActivity : ComponentActivity() {
                         decorationBox = { innerTextField ->
                             // 用 Box 包裹，实现“输入内容+右下角字数统计”的布局
                             Box(modifier = Modifier.fillMaxWidth()) {
-                                // 原有逻辑：提示文字 + 输入内容
                                 if (viewModel.description.isEmpty()) {
                                     Text(
                                         "添加作品描述...",
@@ -456,7 +458,6 @@ class MainActivity : ComponentActivity() {
                                 }
                                 innerTextField()
 
-                                // 👇 核心：字数统计（含190字变红逻辑）
                                 val currentLength = viewModel.description.length
                                 Text(
                                     text = "$currentLength/${viewModel.MAX_DESC_LENGTH}", // 动态获取最大字数
@@ -464,14 +465,14 @@ class MainActivity : ComponentActivity() {
                                     fontSize = 12.sp,
                                     modifier = Modifier
                                         .align(Alignment.BottomEnd) // 固定在右下角
-                                        .padding(bottom = 4.dp, end = 2.dp) // 轻微内边距，避免贴边
+                                        .padding(bottom = 4.dp, end = 2.dp)
                                 )
                             }
                         },
                         modifier = Modifier
                             .fillMaxWidth()
                             .heightIn(min = 60.dp), // 最小高度不变
-                        maxLines = 5, // 限制最大行数（避免文本框过高）
+                        maxLines = 5, // 限制最大行数
                         singleLine = false // 允许换行
                     )
                 }
@@ -597,11 +598,11 @@ class MainActivity : ComponentActivity() {
                     )
                 }
 
-                // 👇 新增2：标签选择弹窗（AlertDialog 版本，无需额外依赖）
+                // 👇 新增2：标签选择弹窗
                 if (isShowTopicSheet.value) {
                     AlertDialog(
                         onDismissRequest = { isShowTopicSheet.value = false },
-                        containerColor = SurfaceColor, // 适配深色主题
+                        containerColor = SurfaceColor,
                         title = {
                             Text(
                                 text = "选择热门标签",
@@ -611,7 +612,6 @@ class MainActivity : ComponentActivity() {
                             )
                         },
                         text = {
-                            // 标签列表（可滚动，避免标签过多超出屏幕）
                             Column(modifier = Modifier
                                 .height(200.dp)
                                 .verticalScroll(rememberScrollState())
@@ -621,14 +621,12 @@ class MainActivity : ComponentActivity() {
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .clickable {
-                                                // 选择标签后：追加到描述框 + 关闭弹窗
                                                 viewModel.appendText("$topic ")
                                                 isShowTopicSheet.value = false
                                             }
                                             .padding(vertical = 12.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        // 热门标签显示🔥，普通标签显示#图标
                                         if (topic.contains("热门")) {
                                             Text(
                                                 "🔥",
@@ -663,14 +661,13 @@ class MainActivity : ComponentActivity() {
                             }
                         },
                         confirmButton = {
-                            // 取消按钮（和图片选择弹窗风格一致）
+                            // 取消按钮
                             TextButton(onClick = { isShowTopicSheet.value = false }) {
                                 Text("取消", color = TextColorPrimary)
                             }
                         }
                     )
                 }
-                // 👇 新增1：权限选择弹窗
                 if (isShowPermissionSheet.value) {
                     AlertDialog(
                         onDismissRequest = { isShowPermissionSheet.value = false },
@@ -721,7 +718,7 @@ class MainActivity : ComponentActivity() {
                                         isShowPermissionSheet.value = false
                                     }
                                 )
-                                // 权限选项5：部分可见（点击后打开好友选择弹窗）
+                                // 权限选项5：部分可见
                                 PermissionItem(
                                     label = "部分可见",
                                     isSelected = currentPermission.value.startsWith("部分可见"),
@@ -731,14 +728,14 @@ class MainActivity : ComponentActivity() {
                                         isShowFriendSelectSheet.value = true // 打开好友选择
                                     }
                                 )
-                                // 权限选项6：不给谁看（点击后打开好友选择弹窗）
+                                // 权限选项6：不给谁看
                                 PermissionItem(
                                     label = "不给谁看",
                                     isSelected = currentPermission.value.startsWith("不给谁看"),
                                     onClick = {
                                         selectType = "不给谁看"
                                         isShowPermissionSheet.value = false
-                                        isShowFriendSelectSheet.value = true // 打开好友选择
+                                        isShowFriendSelectSheet.value = true
                                     }
                                 )
                             }
@@ -807,12 +804,12 @@ class MainActivity : ComponentActivity() {
                                         // 选中状态图标
                                         if (selectedFriends.contains(friend)) {
                                             Icon(
-                                                imageVector = Icons.Default.Check, // 第一个参数：imageVector
+                                                imageVector = Icons.Default.Check,
                                                 contentDescription = "已选中",
                                                 modifier = Modifier
                                                     .weight(1f)
                                                     .align(Alignment.CenterVertically),
-                                                tint = DouyinRed // tint 放在最后
+                                                tint = DouyinRed
                                             )
                                         }
                                     }
@@ -878,22 +875,21 @@ fun BottomBarSection(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(60.dp) // 截图中底部栏高度稍高，适配按钮尺寸
+            .height(60.dp) /
             .background(BackgroundColor)
-            .padding(horizontal = 12.dp, vertical = 8.dp), // 左右间距12dp，上下8dp
+            .padding(horizontal = 12.dp, vertical = 8.dp),
         contentAlignment = Alignment.Center
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp), // 按钮间间距8dp
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // 1. 分享按钮（截图左侧：图标+文字）
+            // 1. 分享按钮
             Box(
                 modifier = Modifier
-                    .size(44.dp) // 正方形按钮
+                    .size(44.dp)
                     .clickable {
-                        // 分享逻辑
                         Toast.makeText(context, "分享", Toast.LENGTH_SHORT).show()
                     },
                 contentAlignment = Alignment.Center
@@ -902,7 +898,7 @@ fun BottomBarSection(
                     imageVector = Icons.Default.Share,
                     contentDescription = "分享",
                     tint = TextColorPrimary,
-                    modifier = Modifier.size(20.dp) // 图标尺寸
+                    modifier = Modifier.size(20.dp)
                 )
                 Text(
                     text = "分享",
@@ -913,24 +909,22 @@ fun BottomBarSection(
                 )
             }
 
-            // 2. 限时日常按钮（截图中间：图标+文字，灰色背景+圆角）
+            // 2. 限时日常按钮
             Button(
                 onClick = {
-                    // 限时日常逻辑
                     Toast.makeText(context, "限时日常", Toast.LENGTH_SHORT).show()
                 },
                 modifier = Modifier
-                    .weight(1f) // 占中间部分宽度
+                    .weight(1f)
                     .height(44.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2A2C36)), // 截图中灰色背景
-                shape = RoundedCornerShape(22.dp), // 大圆角（按钮高度的一半）
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2A2C36)),
+                shape = RoundedCornerShape(22.dp),
                 contentPadding = PaddingValues(horizontal = 12.dp)
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    // 头像（截图中带用户头像，这里用占位图标替代）
                     Icon(
                         imageVector = Icons.Default.Person,
                         contentDescription = "头像",
@@ -945,23 +939,23 @@ fun BottomBarSection(
                 }
             }
 
-            // 3. 发作品按钮（截图右侧：红色背景+大圆角+图标+文字）
+            // 3. 发作品按钮
             Button(
                 onClick = {
-                    // 发布校验逻辑
+
                     val (isValid, message) = viewModel.validateBeforePublish()
                     if (isValid) {
                         Toast.makeText(context, "发布成功！", Toast.LENGTH_SHORT).show()
-                        // 你的发布逻辑
+
                     } else {
                         Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
                     }
                 },
                 modifier = Modifier
-                    .weight(2f) // 占右侧较大宽度（是“限时日常”的2倍）
+                    .weight(2f) /
                     .height(44.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF2744)), // 截图中红色背景
-                shape = RoundedCornerShape(22.dp), // 大圆角（和“限时日常”一致）
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF2744)),
+                shape = RoundedCornerShape(22.dp),
                 contentPadding = PaddingValues(horizontal = 12.dp)
             ) {
                 Row(
@@ -1027,7 +1021,7 @@ private fun DraggableImageItem(
     uri: Uri,
     index: Int,
     totalCount: Int,
-    isFirstImage: Boolean, // 新增参数：是否是第一张图（从外面传入）
+    isFirstImage: Boolean, 
     onRemove: () -> Unit,
     onMove: (fromIndex: Int, toIndex: Int) -> Unit,
     douyinRed: Color
