@@ -3,7 +3,6 @@ package com.example.mock_tiktokpost
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
-import android.location.Geocoder
 import android.net.Uri
 import android.os.Bundle
 import android.widget.Toast
@@ -45,7 +44,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
-import androidx.core.app.ActivityCompat
 import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -53,12 +51,19 @@ import coil.compose.AsyncImage
 import java.io.File
 import java.util.*
 import com.example.mock_tiktokpost.ui.theme.Mock_TiktokPostTheme
-import com.google.android.gms.location.*
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.core.content.ContextCompat
-import com.google.android.material.bottomsheet.BottomSheetDialog
+import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationCallback
+import com.google.android.gms.location.LocationRequest
+import com.google.android.gms.location.LocationResult
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
+import androidx.compose.ui.res.painterResource
+import androidx.compose.material.icons.filled.Upload
+
 
 
 //COLOR
@@ -73,16 +78,19 @@ data class MockUser(val id: String, val name: String)
 //PostView
 class PostViewModel : ViewModel() {
     private val MAX_TITLE_LENGTH = 20    // max length of title
-     val MAX_DESC_LENGTH = 200    // max length of description
-   // private val MIN_IMG_COUNT = 0
+    val MAX_DESC_LENGTH = 200    // max length of description
     private val MAX_IMG_COUNT = 9        // max num of image
     private val _title = mutableStateOf("")
     private val _description = mutableStateOf("")
+    private lateinit var fusedLocationClient: FusedLocationProviderClient
+    private var locationCallback: LocationCallback? = null
+    var currentLatitude by mutableStateOf<Double?>(null)
+    var currentLongitude by mutableStateOf<Double?>(null)
 
     var title: String by _title
     var description: String by _description
     var selectedImages = mutableStateListOf<Uri>()
-    var locationName by mutableStateOf("点击添加位置")
+    var locationName by mutableStateOf("未获取定位")
     var isLocationLoading by mutableStateOf(false)
     // Mock Data
     val trendingTopics = listOf("#男大学生","#抽象","#日常分享","#生活碎片","#王者荣耀","#西安","#内容太过真实","#上热门🔥上热门","#热门挑战", "#今日穿搭", "#美食分享", "#旅行Vlog",
@@ -91,9 +99,17 @@ class PostViewModel : ViewModel() {
         MockUser("1", "张三"), MockUser("2", "李四"), MockUser("3", "王五"),
         MockUser("4", "赵六"), MockUser("5", "孙七")
     )
+
+    fun updateTitle(input: String) {
+        _title.value = input.take(MAX_TITLE_LENGTH)
+    }
+
+    fun updateDescription(input: String) {
+        _description.value = input.take(MAX_DESC_LENGTH)
+    }
     // PhotoManage
     fun removeImage(uri: Uri) {
-    selectedImages.remove(uri)
+        selectedImages.remove(uri)
     }
 
     fun addImage(uri: Uri) {
@@ -123,53 +139,108 @@ class PostViewModel : ViewModel() {
         }
     }
 
-    fun updateTitle(input: String) {
-        _title.value = input.take(MAX_TITLE_LENGTH)
-    }
-
-    fun updateDescription(input: String) {
-        _description.value = input.take(MAX_DESC_LENGTH)
-    }
 
 
     //GetLocation
+
     fun updateLocation(context: Context) {
         isLocationLoading = true
-        val fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
 
-        if (ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-            fusedLocationClient.lastLocation.addOnSuccessListener { location ->
-                if (location != null) {
-                    try {
-                        val geocoder = Geocoder(context, Locale.getDefault())
-                        @Suppress("DEPRECATION")
-                        val addresses = geocoder.getFromLocation(location.latitude, location.longitude, 1)
-                        if (!addresses.isNullOrEmpty()) {
-                            val city = addresses[0].locality ?: addresses[0].subAdminArea ?: "未知城市"
-                            val district = addresses[0].subLocality ?: ""
-                            locationName = "$$city·$$district"
-                        }
-                    } catch (_: Exception) {
-                        locationName = "定位失败: 无法解析"
-                    }
-                } else {
-                    locationName = "定位失败: 无GPS信号"
+        val hasFineLocation = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+
+        val hasCoarseLocation = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.ACCESS_COARSE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+
+        if (!hasFineLocation && !hasCoarseLocation) {
+            locationName = "定位权限未授予"
+            isLocationLoading = false
+            currentLatitude = null
+            currentLongitude = null
+            return
+        }
+
+        if (!::fusedLocationClient.isInitialized) {
+            fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
+        }
+
+        val locationRequest = LocationRequest().apply {
+            priority = Priority.PRIORITY_HIGH_ACCURACY
+            interval = 5000
+            fastestInterval = 2000
+            maxWaitTime = 10000
+        }
+
+        locationCallback = object : LocationCallback() {
+            override fun onLocationResult(locationResult: LocationResult) {
+                val latestLocation = locationResult.lastLocation
+                latestLocation?.let { location ->
+                    currentLatitude = location.latitude
+                    currentLongitude = location.longitude
+                    locationName = "已获取定位"
+                } ?: run {
+                    locationName = "未获取到实时位置"
+                    currentLatitude = null
+                    currentLongitude = null
                 }
-                isLocationLoading = false
-            }.addOnFailureListener {
-                locationName = "定位失败"
+                stopLocationUpdates()
                 isLocationLoading = false
             }
-        } else {
-            locationName = "无权限"
-            isLocationLoading = false
         }
+
+        // 4. 开始请求实时位置更新
+        fusedLocationClient.requestLocationUpdates(
+            locationRequest,
+            locationCallback!!,
+            null
+        ).addOnFailureListener { exception ->
+            exception.printStackTrace()
+            stopLocationUpdates()
+            isLocationLoading = false
+            locationName = "定位失败：${exception.message ?: "未知错误"}"
+        }
+
+        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+            if (isLocationLoading) {
+                stopLocationUpdates()
+                locationName = "定位超时"
+                currentLatitude = null
+                currentLongitude = null
+                isLocationLoading = false
+            }
+        }, 10000)
+    }
+
+    private fun stopLocationUpdates() {
+        locationCallback?.let {
+            fusedLocationClient.removeLocationUpdates(it)
+            locationCallback = null
+        }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        stopLocationUpdates()
     }
 }
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+//        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+//            window.setDecorFitsSystemWindows(false) // 关闭系统自动适配
+//            window.navigationBarColor = Color.TRANSPARENT // 导航栏透明（避免与底部栏重叠）
+//            // 导航栏按钮颜色设为白色（确保可见）
+//            window.isNavigationBarContrastEnforced = false
+//        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+//            window.addFlags(android.view.WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
+//            window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_TRANSLUCENT_NAVIGATION)
+//            window.navigationBarColor = Color.TRANSPARENT
+//        }
         enableEdgeToEdge()
         setContent {
             MaterialTheme(
@@ -191,9 +262,9 @@ class MainActivity : ComponentActivity() {
         val scrollState = rememberScrollState()
         val isShowFriendSheet = remember { mutableStateOf(false) }
         val isShowTopicSheet = remember { mutableStateOf(false) }
-        val isShowPermissionSheet = remember { mutableStateOf(false) } // 控制权限弹窗显示
-        val currentPermission = remember { mutableStateOf("公开 · 所有人可见") } // 当前选中的权限
-        val isShowFriendSelectSheet = remember { mutableStateOf(false) } // 控制好友选择弹窗显示
+        val isShowPermissionSheet = remember { mutableStateOf(false) }
+        val currentPermission = remember { mutableStateOf("公开 · 所有人可见") }
+        val isShowFriendSelectSheet = remember { mutableStateOf(false) }
         var selectType by remember { mutableStateOf("") }
         val selectedFriends = remember { mutableStateListOf<MockUser>() }
 
@@ -224,7 +295,6 @@ class MainActivity : ComponentActivity() {
             ActivityResultContracts.RequestPermission()
         ) { isGranted ->
             if (isGranted) {
-                // 权限通过，启动相机（
                 launchCamera(context)
             } else {
                 Toast.makeText(context, "需要相机权限才能拍照", Toast.LENGTH_SHORT).show()
@@ -263,6 +333,7 @@ class MainActivity : ComponentActivity() {
         val (showAddOptions,setShowAddOptions) = remember { mutableStateOf(false) }
 
         if (showAddOptions) {
+            // choose a photo from album
             AlertDialog(
                 onDismissRequest = { setShowAddOptions(false) },
                 title = { Text("选择图片来源") },
@@ -271,7 +342,7 @@ class MainActivity : ComponentActivity() {
                     TextButton(onClick = {
                         setShowAddOptions(false)
                         galleryLauncher.launch("image/*")
-                    }) { Text("相册") }
+                    }) { Text("相册",color = TextColorPrimary) }
                 },
                 // take a photo by camera
                 dismissButton = {
@@ -283,8 +354,9 @@ class MainActivity : ComponentActivity() {
                         } else {
                             cameraPermissionLauncher.launch(Manifest.permission.CAMERA) // 申请权限
                         }
-                    }) { Text("拍照") }
-                }
+                    }) { Text("拍照",color = TextColorPrimary) }
+                },
+                containerColor = SurfaceColor
             )
         }
 
@@ -321,7 +393,7 @@ class MainActivity : ComponentActivity() {
                     viewModel = viewModel,
                     context = context
                 )
-            }
+            },contentWindowInsets = WindowInsets.navigationBars
         ) { paddingValues ->
             Column(
                 modifier = Modifier
@@ -367,7 +439,7 @@ class MainActivity : ComponentActivity() {
                         ) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Icon(
-                                    Icons.Default.Image,
+                                    Icons.Filled.Image,
                                     contentDescription = null,
                                     tint = Color.Gray,
                                     modifier = Modifier.size(48.dp)
@@ -396,7 +468,7 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
-                    // 添加图片按钮
+                    // add photo button
                     item {
                         Box(
                             modifier = Modifier
@@ -406,7 +478,7 @@ class MainActivity : ComponentActivity() {
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                Icons.Default.Add,
+                                Icons.Filled.Add,
                                 contentDescription = "添加",
                                 tint = Color.White
                             )
@@ -459,8 +531,8 @@ class MainActivity : ComponentActivity() {
 
                                 val currentLength = viewModel.description.length
                                 Text(
-                                    text = "$currentLength/${viewModel.MAX_DESC_LENGTH}", // 动态获取最大字数
-                                    color = if (currentLength > 190) DouyinRed else TextColorSecondary, // 超过190变红
+                                    text = "$currentLength/${viewModel.MAX_DESC_LENGTH}",
+                                    color = if (currentLength > 190) DouyinRed else TextColorSecondary, // turn red when bryond 190
                                     fontSize = 12.sp,
                                     modifier = Modifier
                                         .align(Alignment.BottomEnd)
@@ -470,9 +542,9 @@ class MainActivity : ComponentActivity() {
                         },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .heightIn(min = 60.dp), // 最小高度不变
-                        maxLines = 5, // 限制最大行数
-                        singleLine = false // 允许换行
+                            .heightIn(min = 60.dp),
+                        maxLines = 5,
+                        singleLine = false
                     )
                 }
 
@@ -524,17 +596,17 @@ class MainActivity : ComponentActivity() {
                     onClick = { locationPermissionLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)) }
                 )
                 OptionItem(
-                    icon = Icons.Default.GridView,
+                    icon = Icons.Filled.GridView,
                     label = "添加标签",
                     onClick = { isShowTopicSheet.value = true }
                 )
                 OptionItem(
-                    icon = Icons.Default.Lock,
+                    icon = Icons.Filled.Lock,
                     label = currentPermission.value, // 显示当前选中的权限
-                    onClick = { isShowPermissionSheet.value = true }
+                    onClick = { isShowPermissionSheet.value = true } // 打开权限选择弹窗
                 )
                 OptionItem(
-                    icon = Icons.Default.Settings,
+                    icon = Icons.Filled.Settings,
                     label = "高级设置",
                     onClick = {}
                 )
@@ -554,7 +626,10 @@ class MainActivity : ComponentActivity() {
                         title = { Text("选择要@的朋友", color = TextColorPrimary) },
                         containerColor = SurfaceColor,
                         text = {
-                            Column(modifier = Modifier.height(200.dp).verticalScroll(rememberScrollState())) {
+                            Column(
+                                modifier = Modifier.height(200.dp)
+                                    .verticalScroll(rememberScrollState())
+                            ) {
                                 viewModel.mockFriends.forEach { mockUser ->
                                     Row(
                                         modifier = Modifier
@@ -610,9 +685,10 @@ class MainActivity : ComponentActivity() {
                             )
                         },
                         text = {
-                            Column(modifier = Modifier
-                                .height(200.dp)
-                                .verticalScroll(rememberScrollState())
+                            Column(
+                                modifier = Modifier
+                                    .height(200.dp)
+                                    .verticalScroll(rememberScrollState())
                             ) {
                                 viewModel.trendingTopics.forEach { topic ->
                                     Row(
@@ -647,8 +723,6 @@ class MainActivity : ComponentActivity() {
                                             }
                                             Spacer(modifier = Modifier.width(8.dp))
                                         }
-
-                                        // 标签文本
                                         Text(
                                             text = topic,
                                             fontSize = 16.sp,
@@ -659,13 +733,13 @@ class MainActivity : ComponentActivity() {
                             }
                         },
                         confirmButton = {
-                            // 取消按钮
                             TextButton(onClick = { isShowTopicSheet.value = false }) {
                                 Text("取消", color = TextColorPrimary)
                             }
                         }
                     )
                 }
+
                 if (isShowPermissionSheet.value) {
                     AlertDialog(
                         onDismissRequest = { isShowPermissionSheet.value = false },
@@ -680,7 +754,6 @@ class MainActivity : ComponentActivity() {
                         },
                         text = {
                             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                                // 权限选项1：公开
                                 PermissionItem(
                                     label = "公开 · 所有人可见",
                                     isSelected = currentPermission.value == "公开 · 所有人可见",
@@ -689,7 +762,6 @@ class MainActivity : ComponentActivity() {
                                         isShowPermissionSheet.value = false
                                     }
                                 )
-                                // 权限选项2：互相关注
                                 PermissionItem(
                                     label = "互相关注的人可见",
                                     isSelected = currentPermission.value == "互相关注的人可见",
@@ -698,7 +770,6 @@ class MainActivity : ComponentActivity() {
                                         isShowPermissionSheet.value = false
                                     }
                                 )
-                                // 权限选项3：密友可见
                                 PermissionItem(
                                     label = "密友可见",
                                     isSelected = currentPermission.value == "密友可见",
@@ -707,7 +778,6 @@ class MainActivity : ComponentActivity() {
                                         isShowPermissionSheet.value = false
                                     }
                                 )
-                                // 权限选项4：私密
                                 PermissionItem(
                                     label = "私密 · 仅自己可见",
                                     isSelected = currentPermission.value == "私密 · 仅自己可见",
@@ -716,24 +786,22 @@ class MainActivity : ComponentActivity() {
                                         isShowPermissionSheet.value = false
                                     }
                                 )
-                                // 权限选项5：部分可见
                                 PermissionItem(
                                     label = "部分可见",
                                     isSelected = currentPermission.value.startsWith("部分可见"),
                                     onClick = {
                                         selectType = "部分可见"
                                         isShowPermissionSheet.value = false
-                                        isShowFriendSelectSheet.value = true // 打开好友选择
+                                        isShowFriendSelectSheet.value = true
                                     }
                                 )
-                                // 权限选项6：不给谁看
                                 PermissionItem(
                                     label = "不给谁看",
                                     isSelected = currentPermission.value.startsWith("不给谁看"),
                                     onClick = {
                                         selectType = "不给谁看"
                                         isShowPermissionSheet.value = false
-                                        isShowFriendSelectSheet.value = true
+                                        isShowFriendSelectSheet.value = true // 打开好友选择
                                     }
                                 )
                             }
@@ -759,9 +827,10 @@ class MainActivity : ComponentActivity() {
                             )
                         },
                         text = {
-                            Column(modifier = Modifier
-                                .height(200.dp)
-                                .verticalScroll(rememberScrollState())
+                            Column(
+                                modifier = Modifier
+                                    .height(200.dp)
+                                    .verticalScroll(rememberScrollState())
                             ) {
                                 viewModel.mockFriends.forEach { friend ->
                                     Row(
@@ -802,12 +871,12 @@ class MainActivity : ComponentActivity() {
                                         // 选中状态图标
                                         if (selectedFriends.contains(friend)) {
                                             Icon(
-                                                imageVector = Icons.Default.Check,
+                                                imageVector = Icons.Filled.Check, // 第一个参数：imageVector
                                                 contentDescription = "已选中",
                                                 modifier = Modifier
                                                     .weight(1f)
                                                     .align(Alignment.CenterVertically),
-                                                tint = DouyinRed
+                                                tint = DouyinRed // tint 放在最后
                                             )
                                         }
                                     }
@@ -830,7 +899,7 @@ class MainActivity : ComponentActivity() {
                         }
                     )
                 }
-                Spacer(modifier = Modifier.height(60.dp)) // Bottom padding
+//                Spacer(modifier = Modifier.height(60.dp)) // Bottom padding
             }
         }
     }
@@ -857,7 +926,7 @@ fun PermissionItem(
         )
         if (isSelected) {
             Icon(
-                Icons.Default.Check,
+                Icons.Filled.Check,
                 contentDescription = "选中",
                 tint = DouyinRed,
                 modifier = Modifier.size(20.dp)
@@ -873,7 +942,7 @@ fun BottomBarSection(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(60.dp) /
+            .height(60.dp)
             .background(BackgroundColor)
             .padding(horizontal = 12.dp, vertical = 8.dp),
         contentAlignment = Alignment.Center
@@ -893,7 +962,7 @@ fun BottomBarSection(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Default.Share,
+                    painter = painterResource(id = R.drawable.share),
                     contentDescription = "分享",
                     tint = TextColorPrimary,
                     modifier = Modifier.size(20.dp)
@@ -940,44 +1009,39 @@ fun BottomBarSection(
             // 3. 发作品按钮
             Button(
                 onClick = {
-
                     val (isValid, message) = viewModel.validateBeforePublish()
                     if (isValid) {
                         Toast.makeText(context, "发布成功！", Toast.LENGTH_SHORT).show()
-
                     } else {
                         Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
                     }
                 },
-                modifier = Modifier
-                    .weight(2f) /
-                    .height(44.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF2744)),
+                modifier = Modifier.height(44.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (viewModel.selectedImages.isNotEmpty()) DouyinRed else Color(0xFF8A2C40),
+                    contentColor = Color.White
+                ),
                 shape = RoundedCornerShape(22.dp),
-                contentPadding = PaddingValues(horizontal = 12.dp)
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Upload,
-                        contentDescription = "发作品",
-                        tint = Color.White,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Text(
-                        text = "发作品",
-                        color = Color.White,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
+                enabled = viewModel.selectedImages.isNotEmpty()
+            )
+            {
+                Icon(
+                    imageVector = Icons.Filled.Upload,
+                    contentDescription = "发作品",
+                    tint = Color.White,
+                    modifier = Modifier.size(18.dp)
+                )
+                Text(
+                    text = "发作品",
+                    color = Color.White,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium
+                )
             }
         }
     }
 }
+
 
 @Composable
 fun TagButton(text: String, onClick: () -> Unit) {
@@ -1075,6 +1139,7 @@ private fun DraggableImageItem(
                 .clip(RoundedCornerShape(4.dp))
                 .border(
                     1.dp,
+                    // 👇 不再引用 viewModel，用传入的 isFirstImage 判断
                     if (isFirstImage) douyinRed else Color.Transparent,
                     RoundedCornerShape(4.dp)
                 )
