@@ -447,7 +447,6 @@ class MainActivity : ComponentActivity() {
                         onValueChange = { viewModel.updateDescription(it) },
                         textStyle = TextStyle(color = TextColorPrimary, fontSize = 15.sp),
                         decorationBox = { innerTextField ->
-                            // 用 Box 包裹，实现“输入内容+右下角字数统计”的布局
                             Box(modifier = Modifier.fillMaxWidth()) {
                                 if (viewModel.description.isEmpty()) {
                                     Text(
@@ -464,7 +463,7 @@ class MainActivity : ComponentActivity() {
                                     color = if (currentLength > 190) DouyinRed else TextColorSecondary, // 超过190变红
                                     fontSize = 12.sp,
                                     modifier = Modifier
-                                        .align(Alignment.BottomEnd) // 固定在右下角
+                                        .align(Alignment.BottomEnd)
                                         .padding(bottom = 4.dp, end = 2.dp)
                                 )
                             }
@@ -532,7 +531,7 @@ class MainActivity : ComponentActivity() {
                 OptionItem(
                     icon = Icons.Default.Lock,
                     label = currentPermission.value, // 显示当前选中的权限
-                    onClick = { isShowPermissionSheet.value = true } // 打开权限选择弹窗
+                    onClick = { isShowPermissionSheet.value = true }
                 )
                 OptionItem(
                     icon = Icons.Default.Settings,
@@ -598,7 +597,6 @@ class MainActivity : ComponentActivity() {
                     )
                 }
 
-                // 👇 新增2：标签选择弹窗
                 if (isShowTopicSheet.value) {
                     AlertDialog(
                         onDismissRequest = { isShowTopicSheet.value = false },
@@ -1021,7 +1019,7 @@ private fun DraggableImageItem(
     uri: Uri,
     index: Int,
     totalCount: Int,
-    isFirstImage: Boolean, 
+    isFirstImage: Boolean,
     onRemove: () -> Unit,
     onMove: (fromIndex: Int, toIndex: Int) -> Unit,
     douyinRed: Color
@@ -1077,7 +1075,6 @@ private fun DraggableImageItem(
                 .clip(RoundedCornerShape(4.dp))
                 .border(
                     1.dp,
-                    // 👇 不再引用 viewModel，用传入的 isFirstImage 判断
                     if (isFirstImage) douyinRed else Color.Transparent,
                     RoundedCornerShape(4.dp)
                 )
