@@ -12,9 +12,8 @@
 ## 整体框架
 项目采用 MVVM 架构模式，主要分为以下几个部分：
 * UI 层：使用 Jetpack Compose 构建的界面组件，包括顶部导航栏、内容编辑区、图片预览区、底部操作栏等
-* ViewModel 层：PostViewModel负责管理数据和业务逻辑，与 UI 层通过状态变量交互
-* 数据层：包括图片 Uri、文本内容、位置信息等数据的管理
-* 功能模块：图片选择 / 拍摄、权限管理等功能模块
+* 数据层：通过PostViewModel管理所有投稿相关数据（图片、文字、位置等）和业务逻辑
+* 交互层：通过 Launcher 处理系统功能交互（相机、相册、权限请求）
 ## 代码解析
 ### 核心组件
 * MainActivity：应用入口，负责设置 Compose 内容和协调各功能模块
@@ -187,6 +186,12 @@ fun BottomBarSection(
     viewModel: PostViewModel,
     context: Context
 ) {
+...
+}
+```
+#### 8.定位功能
+```
+fun updateLocation(context: Context) {
 ...
 }
 ```
