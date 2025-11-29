@@ -391,7 +391,8 @@ class MainActivity : ComponentActivity() {
                 BottomBarSection(
 
                     viewModel = viewModel,
-                    context = context
+                    context = context,
+                    modifier = Modifier.padding(bottom = 40.dp)
                 )
             },contentWindowInsets = WindowInsets.navigationBars
         ) { paddingValues ->
@@ -937,10 +938,11 @@ fun PermissionItem(
 @Composable
 fun BottomBarSection(
     viewModel: PostViewModel,
-    context: Context
+    context: Context,
+    modifier: Modifier = Modifier
 ) {
     Box(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .height(60.dp)
             .background(BackgroundColor)
@@ -972,7 +974,7 @@ fun BottomBarSection(
                     color = TextColorPrimary,
                     fontSize = 10.sp,
                     modifier = Modifier.align(Alignment.BottomCenter)
-                        .padding(bottom = 2.dp)
+                        .padding(bottom = 0.dp)
                 )
             }
 
