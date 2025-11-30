@@ -231,10 +231,10 @@ class PostViewModel : ViewModel() {
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-//        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        //        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
 //            window.setDecorFitsSystemWindows(false) // 关闭系统自动适配
-//            window.navigationBarColor = Color.TRANSPARENT // 导航栏透明（避免与底部栏重叠）
-//            // 导航栏按钮颜色设为白色（确保可见）
+//            window.navigationBarColor = Color.TRANSPARENT
+//            // 导航栏按钮颜色设为白色
 //            window.isNavigationBarContrastEnforced = false
 //        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
 //            window.addFlags(android.view.WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
@@ -872,12 +872,12 @@ class MainActivity : ComponentActivity() {
                                         // 选中状态图标
                                         if (selectedFriends.contains(friend)) {
                                             Icon(
-                                                imageVector = Icons.Filled.Check, // 第一个参数：imageVector
+                                                imageVector = Icons.Filled.Check,
                                                 contentDescription = "已选中",
                                                 modifier = Modifier
                                                     .weight(1f)
                                                     .align(Alignment.CenterVertically),
-                                                tint = DouyinRed // tint 放在最后
+                                                tint = DouyinRed
                                             )
                                         }
                                     }
@@ -1141,7 +1141,6 @@ private fun DraggableImageItem(
                 .clip(RoundedCornerShape(4.dp))
                 .border(
                     1.dp,
-                    // 👇 不再引用 viewModel，用传入的 isFirstImage 判断
                     if (isFirstImage) douyinRed else Color.Transparent,
                     RoundedCornerShape(4.dp)
                 )
